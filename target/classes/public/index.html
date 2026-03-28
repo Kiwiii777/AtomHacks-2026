@@ -265,17 +265,12 @@ async function buyShip(sid){
   if(!tmpl||credits<tmpl.baseCost){addLog('Insufficient credits','warn');return;}
   let oid;
   try{
-    const r = await fetch('/api/ships/buy',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({shipId:sid})
-    });
+    await fetch('/api/credits/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credits:Math.floor(credits)})});
 
-    const d = await r.json();
+    const r=await fetch('/api/ships/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({shipId:sid})});
+    const d=await r.json();
     if(!d.ok){addLog(d.error,'warn');return;}
-
-    credits = d.credits;
-    oid = d.ownedId;
+    credits=d.credits; oid=d.ownedId;
   }catch(_){
     credits-=tmpl.baseCost;
     oid='loc-'+Math.random().toString(36).slice(2,7);
