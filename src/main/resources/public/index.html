@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AtomHacks 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:#01030b; --panel:rgba(4,10,28,0.94); --border:rgba(0,210,255,0.15);
+      --accent:#00d2ff; --accent2:#ff6a00; --green:#00ffb0; --red:#ff4060;
+      --yellow:#ffe600; --text:#b8d8ee; --dim:#2e4a60;
+      --font-d:'Orbitron',monospace; --font-m:'Share Tech Mono',monospace;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-m);}
+    #starfield{position:fixed;inset:0;z-index:0;}
+    #app{position:relative;z-index:1;display:grid;grid-template-rows:46px 1fr;height:100vh;opacity:0;transition:opacity .4s;}
+    header{display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--border);background:rgba(1,3,11,0.97);}
+    .logo{font-family:var(--font-d);font-size:.8rem;letter-spacing:.25em;color:var(--accent);text-shadow:0 0 20px var(--accent);}
+    .hud{display:flex;gap:18px;font-size:.68rem;}
+    .hud-item{color:var(--dim);}
+    .hud-item b{color:var(--green);font-weight:normal;}
+    .sdot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:5px;box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .main{display:grid;grid-template-columns:1fr 310px;overflow:hidden;}
+    #map-wrap{position:relative;overflow:hidden;}
+    #map-canvas{display:block;cursor:crosshair;}
+    #tooltip{position:absolute;pointer-events:none;display:none;background:rgba(1,5,18,.96);border:1px solid var(--accent);padding:7px 12px;border-radius:3px;font-size:.68rem;white-space:nowrap;box-shadow:0 0 16px rgba(0,210,255,.25);}
+    .tt-name{font-family:var(--font-d);font-size:.72rem;color:var(--accent);margin-bottom:2px;}
+    .tt-sub{color:var(--dim);font-size:.62rem;}
+    #zoom-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:.6rem;color:var(--dim);pointer-events:none;opacity:.5;letter-spacing:.08em;}
+    #side{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+    .tabs{display:flex;border-bottom:1px solid var(--border);}
+    .tab{flex:1;padding:10px 4px;text-align:center;font-family:var(--font-d);font-size:.56rem;letter-spacing:.12em;color:var(--dim);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .2s;}
+    .tab:hover{color:var(--text);}
+    .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .tab-content{display:none;flex:1;overflow-y:auto;flex-direction:column;}
+    .tab-content.active{display:flex;}
+    .tab-content::-webkit-scrollbar{width:3px;}
+    .tab-content::-webkit-scrollbar-thumb{background:var(--border);}
+    .sec{font-family:var(--font-d);font-size:.55rem;letter-spacing:.18em;color:var(--dim);text-transform:uppercase;padding:10px 14px 6px;}
+    /* Fleet */
+    .ship-row{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid rgba(0,210,255,.06);transition:background .15s;cursor:pointer;}
+    .ship-row:hover{background:rgba(0,210,255,.04);}
+    .ship-row.selected{background:rgba(0,210,255,.08);border-left:2px solid var(--accent);}
+    .ship-icon{font-size:1rem;width:20px;text-align:center;flex-shrink:0;}
+    .ship-info{flex:1;min-width:0;}
+    .ship-name-lbl{font-size:.7rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ship-status{font-size:.6rem;color:var(--dim);}
+    .ship-status.mining{color:var(--green);}
+    .ship-status.traveling{color:var(--yellow);}
+    /* Ship detail */
+    #ship-detail{padding:10px 14px;border-top:1px solid var(--border);flex-shrink:0;}
+    .det-name{font-family:var(--font-d);font-size:.8rem;color:var(--accent);margin-bottom:6px;}
+    .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;}
+    .stat-cell{font-size:.63rem;}
+    .stat-cell .sl{color:var(--dim);}
+    .stat-cell .sv{color:var(--text);}
+    .assign-row{display:flex;gap:7px;align-items:center;margin-bottom:8px;}
+    .assign-row select{flex:1;background:rgba(0,0,0,.5);border:1px solid var(--border);color:var(--text);font-family:var(--font-m);font-size:.66rem;padding:5px 8px;border-radius:2px;outline:none;}
+    .assign-row select:focus{border-color:var(--accent);}
+    .btn-sm{padding:5px 9px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-d);font-size:.52rem;letter-spacing:.1em;cursor:pointer;transition:all .2s;white-space:nowrap;}
+    .btn-sm:hover{background:rgba(0,210,255,.1);}
+    .upg-row{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;border-bottom:1px solid rgba(0,210,255,.05);}
+    .upg-lbl{font-size:.65rem;color:var(--text);}
+    .upg-val{font-size:.62rem;color:var(--accent);margin:0 6px;}
+    .upg-cost{font-size:.58rem;color:var(--green);}
+    .btn-upg{padding:2px 7px;background:transparent;border:1px solid var(--green);color:var(--green);font-family:var(--font-m);font-size:.58rem;cursor:pointer;transition:all .2s;}
+    .btn-upg:hover{background:rgba(0,255,176,.08);}
+    .btn-upg:disabled{border-color:var(--dim);color:var(--dim);cursor:not-allowed;}
+    /* Shop */
+    .shop-card{margin:7px 10px;padding:10px 12px;border:1px solid var(--border);border-radius:3px;transition:all .2s;}
+    .shop-card:hover{border-color:rgba(0,210,255,.35);background:rgba(0,210,255,.03);}
+    .shop-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+    .sc-name{font-family:var(--font-d);font-size:.7rem;color:var(--accent);}
+    .sc-tier{font-size:.56rem;padding:2px 6px;border-radius:2px;}
+    .tier-Scout{border:1px solid var(--green);color:var(--green);}
+    .tier-Frigate{border:1px solid var(--yellow);color:var(--yellow);}
+    .tier-Cruiser{border:1px solid var(--accent2);color:var(--accent2);}
+    .sc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:7px;}
+    .sc-stat{font-size:.58rem;color:var(--dim);}
+    .sc-stat span{color:var(--text);}
+    .sc-footer{display:flex;align-items:center;justify-content:space-between;}
+    .sc-price{font-size:.7rem;color:var(--green);}
+    .btn-buy{padding:5px 11px;background:transparent;border:1px solid var(--accent2);color:var(--accent2);font-family:var(--font-d);font-size:.56rem;letter-spacing:.1em;cursor:pointer;transition:all .2s;}
+    .btn-buy:hover{background:rgba(255,106,0,.12);}
+    .btn-buy:disabled{border-color:var(--dim);color:var(--dim);cursor:not-allowed;}
+    /* Log */
+    #log-list{flex:1;padding:8px 10px;overflow-y:auto;font-size:.63rem;}
+    .log-entry{padding:3px 0;border-bottom:1px solid rgba(0,210,255,.04);line-height:1.5;}
+    .log-ts{color:var(--dim);margin-right:5px;}
+    .log-good{color:var(--green);}
+    .log-info{color:var(--accent);}
+    .log-warn{color:var(--yellow);}
+    /* Loading */
+    #loading{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+    .ld-title{font-family:var(--font-d);font-size:1.1rem;color:var(--accent);letter-spacing:.3em;text-shadow:0 0 28px var(--accent);}
+    .ld-bar{width:180px;height:2px;background:var(--border);border-radius:2px;overflow:hidden;}
+    .ld-fill{height:100%;background:var(--accent);animation:ldanim 1.4s ease-in-out forwards;}
+    @keyframes ldanim{from{width:0}to{width:100%}}
+    .ld-sub{font-size:.65rem;color:var(--dim);letter-spacing:.1em;}
+  </style>
+</head>
+<body>
+<div id="loading">
+  <div class="ld-title">Planet Colonizer</div>
+  <div class="ld-bar"><div class="ld-fill"></div></div>
+  <div class="ld-sub">LOADING STAR CHART...</div>
+</div>
+<canvas id="starfield"></canvas>
+<div id="app">
+  <header>
+    <div class="logo">⬡ Planet Colonizer</div>
+    <div class="hud">
+      <div class="hud-item"><span class="sdot"></span>ONLINE</div>
+      <div class="hud-item">CREDITS <b id="hud-cred">1000</b></div>
+      <div class="hud-item">FLEET <b id="hud-fleet">0</b></div>
+      <div class="hud-item">CARGO <b id="hud-cargo">0</b> units</div>
+    </div>
+  </header>
+  <div class="main">
+    <div id="map-wrap">
+      <canvas id="map-canvas"></canvas>
+      <div id="tooltip"><div class="tt-name" id="tt-name"></div><div class="tt-sub" id="tt-sub"></div></div>
+      <div id="zoom-hint">scroll to zoom &nbsp;·&nbsp; click planet to select</div>
+    </div>
+    <div id="side">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('fleet')">FLEET</button>
+        <button class="tab"        onclick="switchTab('shop')">SHOP</button>
+        <button class="tab"        onclick="switchTab('log')">LOG</button>
+      </div>
+      <div class="tab-content active" id="tab-fleet">
+        <div class="sec">// Active Ships</div>
+        <div id="fleet-list"></div>
+        <div id="ship-detail" style="display:none"></div>
+      </div>
+      <div class="tab-content" id="tab-shop">
+        <div class="sec">// Mothership Store</div>
+        <div id="shop-list"></div>
+      </div>
+      <div class="tab-content" id="tab-log">
+        <div id="log-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ── Starfield ──────────────────────────────────────────────────────────
+(function(){
+  const c=document.getElementById('starfield'),x=c.getContext('2d');
+  function r(){c.width=innerWidth;c.height=innerHeight;}r();window.addEventListener('resize',r);
+  const s=Array.from({length:240},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.1+.2,a:Math.random(),sp:Math.random()*.003+.001}));
+  (function d(){x.clearRect(0,0,c.width,c.height);s.forEach(st=>{st.a+=st.sp;x.beginPath();x.arc(st.x*c.width,st.y*c.height,st.r,0,Math.PI*2);x.fillStyle=`rgba(170,210,255,${.22+.32*Math.abs(Math.sin(st.a))})`;x.fill();});requestAnimationFrame(d);})();
+})();
+
+// ── State ──────────────────────────────────────────────────────────────
+let planets=[], catalog=[], owned={}, credits=1000;
+let selectedShipId=null, selectedPlanet=null, zoom=1.0;
+const ZOOM_MIN=0.18, ZOOM_MAX=2.8;
+let planetPos={}; // name->{x,y,r}
+let sprites={};   // ownedId->{progress,state,miningTimer}
+
+// ── Planet data ────────────────────────────────────────────────────────
+const ANGLES={Mercury:.3,Venus:1.1,Earth:1.9,Mars:2.8,'Asteroid Belt':3.6,Jupiter:4.4,Saturn:5.1,Uranus:.6,Neptune:1.7};
+const PCOLS={
+  Mercury:{b:'#7a5a40',h:'#c09870'},Venus:{b:'#c8a040',h:'#f0d080'},
+  Earth:{b:'#1a6fb5',h:'#6dd5fa'},Mars:{b:'#b03a2e',h:'#f4a18a'},
+  'Asteroid Belt':{b:'#666',h:'#aaa'},Jupiter:{b:'#c97c2f',h:'#f9d78e'},
+  Saturn:{b:'#b89040',h:'#e8d090'},Uranus:{b:'#4e9ea8',h:'#9ee0e8'},Neptune:{b:'#2255bb',h:'#4488ee'}
+};
+const PRAD={Mercury:5,Venus:7,Earth:9,Mars:7,'Asteroid Belt':3,Jupiter:14,Saturn:12,Uranus:10,Neptune:10};
+
+// ── Fallback data ──────────────────────────────────────────────────────
+const FP=[
+  {name:"Mercury",  distance:.39,  materials:[{name:"SILICATE",value:300,amount:3},{name:"IRON",value:10,amount:5},{name:"NICKEL",value:800,amount:1.5}]},
+  {name:"Venus",    distance:.72,  materials:[{name:"SILICATE",value:300,amount:3},{name:"GOLD",value:50,amount:2.5},{name:"PLATINUM",value:12000,amount:.08}]},
+  {name:"Earth",    distance:1.0,  materials:[{name:"IRON",value:10,amount:5},{name:"GOLD",value:50,amount:2.5},{name:"DIAMOND",value:200,amount:1}]},
+  {name:"Mars",     distance:1.52, materials:[{name:"MARTIAN ROCK",value:1000,amount:.5},{name:"HEMATITE",value:5000,amount:.1},{name:"POLAR ICE",value:7500,amount:.01}]},
+  {name:"Asteroid Belt",distance:2.7,materials:[{name:"NICKEL",value:800,amount:1.5},{name:"PLATINUM",value:12000,amount:.08},{name:"SILICATE",value:300,amount:3}]},
+  {name:"Jupiter",  distance:5.2,  materials:[{name:"STORM STONE",value:15000,amount:.005},{name:"AEROGEL",value:50000,amount:.001},{name:"SOLID HELIUM",value:100000,amount:.0001}]},
+  {name:"Saturn",   distance:9.58, materials:[{name:"RING DUST",value:8000,amount:.02},{name:"METHANE ICE",value:20000,amount:.003},{name:"AMMONIA SHARD",value:35000,amount:.002}]},
+  {name:"Uranus",   distance:19.2, materials:[{name:"METHANE ICE",value:20000,amount:.003},{name:"AMMONIA SHARD",value:35000,amount:.002},{name:"TRITIUM",value:250000,amount:.0001}]},
+  {name:"Neptune",  distance:30.05,materials:[{name:"TRITIUM",value:250000,amount:.0001},{name:"DARK MATTER",value:500000,amount:.00005},{name:"SOLID HELIUM",value:100000,amount:.0001}]},
+];
+const FC=[
+  {id:"YV1", name:"YV-1 Sparrow", brand:"YV",tier:"Scout",   thrust:12,speed:3, capacity:400, miningSpeed:.5, miningMultiplier:1.0, baseCost:800},
+  {id:"YV2", name:"YV-2 Falcon",  brand:"YV",tier:"Scout",   thrust:14,speed:4, capacity:600, miningSpeed:.8, miningMultiplier:1.1, baseCost:1500},
+  {id:"YV3", name:"YV-3 Hawk",    brand:"YV",tier:"Scout",   thrust:16,speed:5, capacity:800, miningSpeed:1.2,miningMultiplier:1.2, baseCost:2800},
+  {id:"XV12",name:"XV-12 Dart",   brand:"XV",tier:"Scout",   thrust:8, speed:5, capacity:100, miningSpeed:.6, miningMultiplier:1.0, baseCost:900},
+  {id:"XV13",name:"XV-13 Arrow",  brand:"XV",tier:"Scout",   thrust:10,speed:6, capacity:120, miningSpeed:1.0,miningMultiplier:1.15,baseCost:1800},
+  {id:"XV14",name:"XV-14 Bolt",   brand:"XV",tier:"Scout",   thrust:15,speed:8, capacity:80,  miningSpeed:1.5,miningMultiplier:1.3, baseCost:3500},
+  {id:"FR1", name:"FR-1 Corsair", brand:"FR",tier:"Frigate", thrust:20,speed:4, capacity:2000,miningSpeed:2.0,miningMultiplier:1.5, baseCost:8000},
+  {id:"FR2", name:"FR-2 Brigand", brand:"FR",tier:"Frigate", thrust:25,speed:5, capacity:3000,miningSpeed:3.0,miningMultiplier:1.7, baseCost:15000},
+  {id:"CR1", name:"CR-1 Titan",   brand:"CR",tier:"Cruiser", thrust:40,speed:3, capacity:8000,miningSpeed:5.0,miningMultiplier:2.0, baseCost:50000},
+  {id:"CR2", name:"CR-2 Colossus",brand:"CR",tier:"Cruiser", thrust:55,speed:2, capacity:15000,miningSpeed:8.0,miningMultiplier:2.5,baseCost:120000},
+];
+
+// ── Boot ───────────────────────────────────────────────────────────────
+async function init(){
+  try{
+    const [pr,cr,sr]=await Promise.all([
+      fetch('/api/planets').then(r=>r.json()),
+      fetch('/api/ships/catalog').then(r=>r.json()),
+      fetch('/api/state').then(r=>r.json()),
+    ]);
+    planets=pr; catalog=cr; credits=sr.credits;
+    (sr.ownedShips||[]).forEach(s=>{owned[s.id]=s;sprites[s.id]=mkSprite(s);});
+  }catch(_){planets=FP;catalog=FC;}
+  setTimeout(()=>{
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.opacity='1';
+    buildShop(); renderFleetList(); updateHUD();
+    resize(); startLoop();
+  },1400);
+}
+
+// ── HUD ────────────────────────────────────────────────────────────────
+function updateHUD(){
+  document.getElementById('hud-cred').textContent=Math.floor(credits).toLocaleString();
+  document.getElementById('hud-fleet').textContent=Object.keys(owned).length;
+  document.getElementById('hud-cargo').textContent=Object.values(owned).reduce((a,s)=>a+(s.cargoUnits||0),0);
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['fleet','shop','log'][i]===n));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+}
+
+// ── Shop ───────────────────────────────────────────────────────────────
+function buildShop(){
+  const el=document.getElementById('shop-list'); el.innerHTML='';
+  catalog.forEach(s=>{
+    if(s.tier==='Mothership') return;
+    const d=document.createElement('div'); d.className='shop-card';
+    d.innerHTML=`
+      <div class="shop-card-header"><span class="sc-name">${s.name}</span><span class="sc-tier tier-${s.tier}">${s.tier}</span></div>
+      <div class="sc-stats">
+        <div class="sc-stat">SPD <span>${s.speed}</span></div>
+        <div class="sc-stat">CAP <span>${s.capacity}</span></div>
+        <div class="sc-stat">MN <span>${s.miningSpeed}</span></div>
+        <div class="sc-stat">THR <span>${s.thrust}</span></div>
+        <div class="sc-stat">×MLT <span>${s.miningMultiplier}</span></div>
+      </div>
+      <div class="sc-footer">
+        <span class="sc-price">¢${s.baseCost.toLocaleString()}</span>
+        <button class="btn-buy" id="buy-${s.id}" onclick="buyShip('${s.id}')">ACQUIRE</button>
+      </div>`;
+    el.appendChild(d);
+  });
+  refreshBuyBtns();
+}
+function refreshBuyBtns(){
+  catalog.forEach(s=>{
+    const b=document.getElementById('buy-'+s.id);
+    if(b) b.disabled=credits<s.baseCost;
+  });
+}
+
+async function buyShip(sid){
+  const tmpl=catalog.find(s=>s.id===sid);
+  if(!tmpl||credits<tmpl.baseCost){addLog('Insufficient credits','warn');return;}
+  let oid;
+  try{
+    const r = await fetch('/api/ships/buy',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({shipId:sid})
+    });
+
+    const d = await r.json();
+    if(!d.ok){addLog(d.error,'warn');return;}
+
+    credits = d.credits;
+    oid = d.ownedId;
+  }catch(_){
+    credits-=tmpl.baseCost;
+    oid='loc-'+Math.random().toString(36).slice(2,7);
+  }
+  const ow={...tmpl,id:oid,templateId:sid,cargoUnits:0,assignedPlanet:null,upgradeLevels:{}};
+  owned[oid]=ow; sprites[oid]=mkSprite(ow);
+  addLog(`Acquired ${tmpl.name}`,'good');
+  renderFleetList(); updateHUD(); refreshBuyBtns();
+}
+
+
+// ── Fleet ──────────────────────────────────────────────────────────────
+function renderFleetList(){
+  const el=document.getElementById('fleet-list'); el.innerHTML='';
+  const ships=Object.values(owned);
+  if(!ships.length){el.innerHTML='<div style="padding:14px;font-size:.67rem;color:var(--dim);">No ships — visit the Shop.</div>';return;}
+  ships.forEach(s=>{
+    const sp=sprites[s.id];
+    let stxt=!s.assignedPlanet?'Unassigned':sp?.state==='mining'?`Mining ${s.assignedPlanet}`:sp?.state==='toplanet'?`→ ${s.assignedPlanet}`:`← Earth`;
+    let scls=sp?.state==='mining'?'mining':(sp?.state&&sp.state!=='idle')?'traveling':'';
+    const row=document.createElement('div');
+    row.className='ship-row'+(selectedShipId===s.id?' selected':'');
+    row.innerHTML=`<div class="ship-icon">${tierIcon(s.tier)}</div><div class="ship-info"><div class="ship-name-lbl">${s.name}</div><div class="ship-status ${scls}">${stxt}</div></div>`;
+    row.onclick=()=>selectShip(s.id);
+    el.appendChild(row);
+  });
+}
+function tierIcon(t){return t==='Scout'?'🛸':t==='Frigate'?'🚀':t==='Cruiser'?'🛳️':'⭐';}
+function selectShip(id){selectedShipId=id;renderFleetList();renderShipDetail(id);}
+
+function renderShipDetail(id){
+  const s=owned[id], det=document.getElementById('ship-detail');
+  if(!s){det.style.display='none';return;}
+  det.style.display='block';
+  const UPC={speed:500,thrust:400,capacity:600,miningSpeed:800,miningMultiplier:1200};
+  const lvl=s.upgradeLevels||{};
+  const upRows=['speed','thrust','capacity','miningSpeed','miningMultiplier'].map(a=>{
+    const cl=lvl[a]||1, cost=UPC[a]*cl, can=credits>=cost;
+    const val=a==='miningMultiplier'?s[a].toFixed(2)+'×':a==='miningSpeed'?s[a].toFixed(1):s[a];
+    const lbl={speed:'Speed',thrust:'Thrust',capacity:'Capacity',miningSpeed:'Mine Spd',miningMultiplier:'Multiplier'}[a];
+    return `<div class="upg-row"><span class="upg-lbl">${lbl}</span><span class="upg-val">${val}</span><span class="upg-cost">¢${cost.toLocaleString()}</span><button class="btn-upg"${can?'':' disabled'} onclick="upgradeShip('${id}','${a}',${cost})">▲</button></div>`;
+  }).join('');
+  const popts=planets.filter(p=>p.name!=='Earth').map(p=>`<option value="${p.name}"${s.assignedPlanet===p.name?' selected':''}>${p.name}</option>`).join('');
+  det.innerHTML=`
+    <div class="det-name">${s.name}</div>
+    <div class="stat-grid">
+      <div class="stat-cell"><span class="sl">Brand</span><br><span class="sv">${s.brand}</span></div>
+      <div class="stat-cell"><span class="sl">Tier</span><br><span class="sv">${s.tier}</span></div>
+      <div class="stat-cell"><span class="sl">Speed</span><br><span class="sv">${s.speed}</span></div>
+      <div class="stat-cell"><span class="sl">Capacity</span><br><span class="sv">${s.capacity}</span></div>
+    </div>
+    <div class="assign-row">
+      <select id="asel"><option value="">— Unassign —</option>${popts}</select>
+      <button class="btn-sm" onclick="assignShip('${id}')">ASSIGN</button>
+    </div>
+    <div class="sec" style="padding:4px 0 3px;">// Upgrades</div>
+    ${upRows}`;
+}
+
+async function assignShip(id){
+  const planet=document.getElementById('asel').value||null;
+  owned[id].assignedPlanet=planet;
+  if(sprites[id]){sprites[id].state=planet?'toplanet':'idle';sprites[id].progress=0;}
+  try{await fetch('/api/ships/assign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ownedId:id,planet})});}catch(_){}
+  addLog(`${owned[id].name} → ${planet||'base'}`,'info');
+  renderFleetList(); renderShipDetail(id);
+}
+
+async function upgradeShip(id,attr,cost){
+  if(credits<cost){addLog('Insufficient credits','warn');return;}
+  try{
+    const r=await fetch('/api/ships/upgrade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ownedId:id,attr})});
+    const d=await r.json();
+    if(d.ok){credits=d.credits;Object.assign(owned[id],d.ship);}
+  }catch(_){
+    credits-=cost; applyUpgLocal(id,attr);
+    const lv=owned[id].upgradeLevels||{};lv[attr]=(lv[attr]||1)+1;owned[id].upgradeLevels=lv;
+  }
+  addLog(`${owned[id].name} upgraded — ${attr}`,'good');
+  updateHUD(); renderFleetList(); renderShipDetail(id); refreshBuyBtns();
+}
+function applyUpgLocal(id,a){
+  const s=owned[id];
+  if(a==='speed') s.speed+=1;
+  if(a==='thrust') s.thrust+=2;
+  if(a==='capacity') s.capacity+=200;
+  if(a==='miningSpeed') s.miningSpeed=+(s.miningSpeed+.3).toFixed(2);
+  if(a==='miningMultiplier') s.miningMultiplier=+(s.miningMultiplier+.1).toFixed(2);
+}
+
+// ── Sprites ────────────────────────────────────────────────────────────
+function mkSprite(ship){return{progress:0,state:ship.assignedPlanet?'toplanet':'idle',miningTimer:0};}
+
+// ── Game loop ──────────────────────────────────────────────────────────
+let lastTick=0;
+function startLoop(){requestAnimationFrame(loop);}
+function loop(ts){
+  const dt=Math.min((ts-lastTick)/1000,.1);lastTick=ts;
+  tickShips(dt); drawMap(); requestAnimationFrame(loop);
+}
+
+function tickShips(dt){
+  let changed=false;
+  Object.entries(owned).forEach(([id,ship])=>{
+    const sp=sprites[id];
+    if(!sp||!ship.assignedPlanet||ship.tier==='Mothership') return;
+    const planet=planets.find(p=>p.name===ship.assignedPlanet); if(!planet) return;
+    const spd=ship.speed*.035;
+    if(sp.state==='toplanet'){
+      sp.progress+=spd*dt/planet.distance;
+      if(sp.progress>=1){sp.progress=1;sp.state='mining';sp.miningTimer=0;}
+    } else if(sp.state==='mining'){
+      const mt=Math.max(1.5,8/ship.miningSpeed);
+      sp.miningTimer+=dt;
+      if(sp.miningTimer>=mt){
+        sp.miningTimer=0;
+        const mats=planet.materials, tot=mats.reduce((a,m)=>a+m.amount,0);
+        let r=Math.random()*tot, picked=mats[mats.length-1];
+        for(const m of mats){r-=m.amount;if(r<=0){picked=m;break;}}
+        const qty=Math.max(1,Math.round(ship.miningMultiplier*(1+Math.random())));
+        const earned=picked.value*qty;
+        ship.cargoUnits=(ship.cargoUnits||0)+qty;
+        if(ship.cargoUnits>=ship.capacity){
+          sp.state='toearth'; sp.progress=1;
+          addLog(`${ship.name} cargo full — returning`,'info');
+        } else {
+          credits+=earned; changed=true;
+          addLog(`${ship.name} mined ${qty}× ${picked.name} at ${planet.name} +¢${earned.toLocaleString()}`,'good');
+        }
+        updateHUD();
+      }
+    } else if(sp.state==='toearth'){
+      sp.progress-=spd*dt/planet.distance;
+      if(sp.progress<=0){
+        sp.progress=0;
+        const val=ship.cargoUnits*(planet.materials[0]?.value||100);
+        credits+=val; ship.cargoUnits=0; sp.state='toplanet'; changed=true;
+        addLog(`${ship.name} deposited — +¢${val.toLocaleString()}`,'good');
+        fetch('/api/deposit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:val})}).catch(()=>{});
+        updateHUD();
+      }
+    }
+  });
+  if(changed) renderFleetList();
+}
+
+// ── Map ────────────────────────────────────────────────────────────────
+const canvas=document.getElementById('map-canvas'), ctx=canvas.getContext('2d');
+function resize(){const w=document.getElementById('map-wrap');canvas.width=w.clientWidth;canvas.height=w.clientHeight;}
+window.addEventListener('resize',resize);
+
+function drawMap(){
+  const W=canvas.width, H=canvas.height, cx=W/2, cy=H/2;
+  ctx.clearRect(0,0,W,H);
+  // base scale: at zoom=1, 1AU = ~13% of min(W,H)  →  inner planets visible; scroll out for outer
+  const scale=Math.min(W,H)*.13*zoom;
+  drawSun(ctx,cx,cy);
+  planetPos={};
+  planets.forEach(p=>{
+    const dist=p.distance*scale, ang=ANGLES[p.name]||0;
+    const px=cx+dist*Math.cos(ang), py=cy+dist*Math.sin(ang);
+    const rad=PRAD[p.name]||8;
+    const isSel=selectedPlanet===p.name;
+    planetPos[p.name]={x:px,y:py,r:rad};
+
+    // Orbit ring
+    ctx.beginPath(); ctx.arc(cx,cy,dist,0,Math.PI*2);
+    ctx.strokeStyle=isSel?'rgba(0,210,255,.28)':'rgba(255,255,255,.05)';
+    ctx.lineWidth=isSel?1.2:.6; ctx.setLineDash([3,7]); ctx.stroke(); ctx.setLineDash([]);
+
+    // Asteroid belt: wide dashed band instead of dot
+    if(p.name==='Asteroid Belt'){
+      ctx.beginPath(); ctx.arc(cx,cy,dist,0,Math.PI*2);
+      ctx.strokeStyle='rgba(140,130,100,.18)'; ctx.lineWidth=9;
+      ctx.setLineDash([2,5]); ctx.stroke(); ctx.setLineDash([]);
+      return;
+    }
+
+    // Saturn ring
+    if(p.name==='Saturn'){
+      ctx.save(); ctx.translate(px,py); ctx.scale(1,.35);
+      ctx.beginPath(); ctx.arc(0,0,rad*2.1,0,Math.PI*2);
+      ctx.strokeStyle='rgba(200,160,80,.35)'; ctx.lineWidth=3; ctx.stroke();
+      ctx.restore();
+    }
+
+    // Selection glow
+    if(isSel){
+      const gl=ctx.createRadialGradient(px,py,0,px,py,rad*3.5);
+      gl.addColorStop(0,'rgba(0,210,255,.16)'); gl.addColorStop(1,'transparent');
+      ctx.beginPath(); ctx.arc(px,py,rad*3.5,0,Math.PI*2); ctx.fillStyle=gl; ctx.fill();
+    }
+
+    // Planet body
+    const c=PCOLS[p.name]||{b:'#555',h:'#999'};
+    const gr=ctx.createRadialGradient(px-rad*.35,py-rad*.35,0,px,py,rad);
+    gr.addColorStop(0,c.h); gr.addColorStop(1,c.b);
+    ctx.beginPath(); ctx.arc(px,py,rad,0,Math.PI*2); ctx.fillStyle=gr; ctx.fill();
+
+    if(isSel){ctx.beginPath();ctx.arc(px,py,rad+4,0,Math.PI*2);ctx.strokeStyle='rgba(0,210,255,.75)';ctx.lineWidth=1.5;ctx.stroke();}
+
+    // Mothership star at Earth
+    if(p.name==='Earth'){
+      ctx.font='11px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('⭐',px,py-rad-9);
+    }
+
+    // Label
+    ctx.fillStyle=isSel?'#00d2ff':'rgba(155,195,220,.6)';
+    ctx.font=`${isSel?'bold ':''}.64rem Orbitron,monospace`;
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(p.name.toUpperCase(),px+rad+5,py);
+  });
+
+  drawShipSprites(ctx,cx,cy,scale);
+}
+
+function drawSun(ctx,cx,cy){
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,26);
+  g.addColorStop(0,'#fff8e0');g.addColorStop(.35,'#ffe066');g.addColorStop(.75,'#ff9900');g.addColorStop(1,'rgba(255,80,0,0)');
+  ctx.beginPath();ctx.arc(cx,cy,26,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+  const g2=ctx.createRadialGradient(cx,cy,0,cx,cy,52);
+  g2.addColorStop(0,'rgba(255,160,0,.1)');g2.addColorStop(1,'transparent');
+  ctx.beginPath();ctx.arc(cx,cy,52,0,Math.PI*2);ctx.fillStyle=g2;ctx.fill();
+}
+
+function drawShipSprites(ctx,cx,cy,scale){
+  const eAng=ANGLES['Earth']||0, eDist=1.0*scale;
+  const ex=cx+eDist*Math.cos(eAng), ey=cy+eDist*Math.sin(eAng);
+  Object.entries(owned).forEach(([id,ship])=>{
+    const sp=sprites[id];
+    if(!sp||!ship.assignedPlanet||ship.tier==='Mothership') return;
+    const planet=planets.find(p=>p.name===ship.assignedPlanet); if(!planet) return;
+    const pAng=ANGLES[planet.name]||0, pDist=planet.distance*scale;
+    const px=cx+pDist*Math.cos(pAng), py=cy+pDist*Math.sin(pAng);
+    const t=sp.progress;
+    let sx,sy;
+    if(sp.state==='toplanet'){sx=ex+(px-ex)*t;sy=ey+(py-ey)*t;}
+    else if(sp.state==='mining'){sx=px;sy=py;}
+    else{sx=px+(ex-px)*(1-t);sy=py+(ey-py)*(1-t);}
+    const col=sp.state==='mining'?'#00ffb0':sp.state==='toearth'?'#ff6a00':'#00d2ff';
+    const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,6);
+    sg.addColorStop(0,col); sg.addColorStop(1,'transparent');
+    ctx.beginPath();ctx.arc(sx,sy,6,0,Math.PI*2);ctx.fillStyle=sg;ctx.fill();
+    ctx.beginPath();ctx.arc(sx,sy,2.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+  });
+}
+
+// ── Map interaction ────────────────────────────────────────────────────
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  zoom*=e.deltaY<0?1.12:.89;
+  zoom=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,zoom));
+},{passive:false});
+
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  let hit=null;
+  Object.entries(planetPos).forEach(([n,p])=>{if(Math.hypot(mx-p.x,my-p.y)<p.r+10)hit=n;});
+  if(hit) selectedPlanet=hit;
+});
+
+const tip=document.getElementById('tooltip');
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  let found=null;
+  Object.entries(planetPos).forEach(([n,p])=>{if(Math.hypot(mx-p.x,my-p.y)<p.r+10)found={n,...p};});
+  if(found){
+    tip.style.display='block';tip.style.left=(mx+14)+'px';tip.style.top=(my-8)+'px';
+    document.getElementById('tt-name').textContent=found.n.toUpperCase();
+    const pl=planets.find(p=>p.name===found.n);
+    document.getElementById('tt-sub').textContent=pl?`${pl.distance} AU · ${pl.materials.map(m=>m.name).join(', ')}`:''
+    canvas.style.cursor='pointer';
+  } else {tip.style.display='none';canvas.style.cursor='crosshair';}
+});
+
+// ── Log ────────────────────────────────────────────────────────────────
+function addLog(msg,type='info'){
+  const el=document.getElementById('log-list');
+  const now=new Date(), ts=`${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const d=document.createElement('div'); d.className='log-entry';
+  d.innerHTML=`<span class="log-ts">[${ts}]</span><span class="log-${type}">${msg}</span>`;
+  el.insertBefore(d,el.firstChild);
+  while(el.children.length>100)el.removeChild(el.lastChild);
+}
+
+init();
+</script>
+</body>
+</html>
